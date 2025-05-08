@@ -18,7 +18,7 @@ export default function MainComponent() {
     // setData(null);
 
     try {
-      const response = await fetch("http://localhost:3000/api/users", {
+      const response = await fetch("/api/users", {
         cache: "no-store",
       });
       const data = await response.json();
@@ -44,7 +44,7 @@ export default function MainComponent() {
 
   const postRequestHandler = async() => {
     try {
-      const response = await fetch("http://localhost:3000/api/users", {
+      const response = await fetch("/api/users", {
         method: "POST",
         headers: {
           "Content-Type": "text/plain",
