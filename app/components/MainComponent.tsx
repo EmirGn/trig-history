@@ -305,7 +305,7 @@ return (
               value={input}
               onChange={handleInputChange}
               autoComplete="off"
-              placeholder="Type a message..."
+              placeholder="Mesaj girin..."
             />
             <button 
               type="submit"
