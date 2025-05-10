@@ -2,10 +2,10 @@
 
 import Image from "next/image";
 import { StaticImageData } from "next/image";
-import albattani from "@/public/scientistsImage/albattani1.jpeg";
 import { scientistsJson } from "@/public/content/scientists";
-import { ChangeEvent, useState } from "react";
+import { ChangeEvent, useState, useRef, useEffect } from "react";
 
+import albattani from "@/public/scientistsImage/albattani1.jpeg";
 import betweenLeftRightIcon1 from "@/public/icons/image-index-div-1.svg";
 import betweenLeftRightIcon2 from "@/public/icons/image-index-div-2.svg";
 import betweenLeftRightIcon3 from "@/public/icons/image-index-div-3.svg";
@@ -13,6 +13,14 @@ import leftIcon from "@/public/icons/leftIcon.svg";
 import rightIcon from "@/public/icons/rightIcon.svg";
 import upIcon from "@/public/icons/upIcon.svg";
 import downIcon from "@/public/icons/downIcon.svg";
+
+type PostResponse = ApiResponse | { error: string };
+type MessageRole = "user" | "assistant";
+
+interface Message {
+  role: MessageRole;
+  content: string;
+}
 
 interface ApiResponse {
   returned: string;
@@ -47,11 +55,54 @@ const ScientistCard: React.FC<ScientistCardProp> = ({ image_path, scientist_name
 }
 
 export default function MainComponent() {
+
+  //Storing chat messages in a single state
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState<string>("");
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  //General state management
   const [InputChat, setInputChat] = useState<string>("");
   const [middleStatus, setMiddleStatus] = useState<slideIndex>("1");
 
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages])
+
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    const userMessage: Message = { role: "user", content: input };
+    setMessages(prev => [...prev, userMessage]);
+
+    setInput("")
+    setIsLoading(true);
+
+    try {
+      const data = await postRequestHandler();
+      
+      if("error" in data) {
+        throw new Error("Error in data.");
+      } else {
+        setMessages(prev => [...prev, { role: 'assistant', content: data.returned }]);
+      }
+    } catch {
+      console.error("Error sending the message");
+      setMessages(prev => [...prev, {
+        role: "assistant",
+        content: "Sorry, there was an error processing your request."
+      }]);
+    } finally {
+      setIsLoading(false);
+      console.log(messages);
+    }
+  }
+
   const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
     setInputChat(event.target.value);
+    setInput(event.target.value);
   }
 
   const handleStatusChange = (dir: "left" | "right") => {
@@ -80,7 +131,7 @@ export default function MainComponent() {
     }
   };
 
-  const postRequestHandler = async() => {
+  const postRequestHandler = async(): Promise<PostResponse> => {
     try {
       const response = await fetch("/api/users", {
         method: "POST",
@@ -97,33 +148,102 @@ export default function MainComponent() {
       }
 
       const data: ApiResponse = await response.json();
-      console.log(data.returned);
       return data
     } catch (error) {
       console.error("handleGetRequest error: ", error);
-      return { error: error || "Failed to fetch data." };
+      return { error: "Failed to fetch data." };
     }
   }
 
-  return (
+return (
     <div className="flex flex-row justify-between w-full h-screen p-8 gap-5">
-      <div className="flex flex-col w-1/2 bg-leftpanel rounded-xl p-4 h-full overflow-auto items-center">
+      <div className="flex flex-col w-[60%] bg-leftpanel rounded-xl p-4 h-full overflow-auto items-center">
         <ScientistCard image_path={albattani} scientist_name="albattani" scientists_data={scientistsJson}/>
         <div className="flex flex-col ml-auto mt-auto gap-4">
-          <Image src={upIcon} alt="upIcon" className="hover:cursor-pointer"></Image>
-          <Image src={downIcon} alt="downIcon" className="hover:cursor-pointer"></Image>
+          <Image src={upIcon} alt="upIcon" className="hover:cursor-pointer" />
+          <Image src={downIcon} alt="downIcon" className="hover:cursor-pointer" />
         </div>
         <div className="flex mt-auto gap-4">
-          <Image src={leftIcon} alt="leftIcon" onClick={() => handleStatusChange("left")} className="hover:cursor-pointer"></Image>
+          <Image 
+            src={leftIcon} 
+            alt="leftIcon" 
+            onClick={() => handleStatusChange("left")} 
+            className="hover:cursor-pointer" 
+          />
           {renderMiddleStatusBar()}
-          <Image src={rightIcon} alt="rightIcon" onClick={() => handleStatusChange("right")} className="hover:cursor-pointer"></Image>
+          <Image 
+            src={rightIcon} 
+            alt="rightIcon" 
+            onClick={() => handleStatusChange("right")} 
+            className="hover:cursor-pointer" 
+          />
         </div>
       </div>
-      <div className="flex flex-col w-1/2 bg-rightpanel rounded-xl p-4 h-full overflow-auto justify-end">
-        <div className="flex flex-col w-full h-25 bg-leftpanel rounded-md">
-          <label htmlFor="conversation-input"></label>
-          <input type="text" className="focus:outline-none w-full h-2/3 px-4 text-rightpanel" onChange={handleInputChange}/>
-          <button className="bg-rightpanel ml-auto rounded-xl px-4 py-2 m-2 hover:cursor-pointer" onClick={postRequestHandler}>Gönder</button>
+
+      {/* Right Panel - Chat Interface */}
+      <div className="flex flex-col w-[40%] bg-rightpanel rounded-xl p-4 h-full overflow-auto">
+        {/* Messages display area */}
+        <div className="flex-1 overflow-y-auto mb-4 flex flex-col gap-3">
+          {messages.length === 0 ? (
+            <div className="flex items-center justify-center h-full text-gray-400">
+              <p>Mesaj gönderek konuşmaya başlayın</p>
+            </div>
+          ) : (
+            messages.map((message, index) => (
+              <div 
+                key={index} 
+                className={`mb-2 ${message.role === 'user' ? 'text-right' : 'text-left'}`}
+              >
+                <div 
+                  className={`inline-block p-3 rounded-lg max-w-[80%] ${
+                    message.role === 'user' 
+                      ? 'bg-chatcolor text-white rounded-br-none' 
+                      : 'bg-leftpanel text-rightpanel rounded-bl-none'
+                  }`}
+                >
+                  {message.content}
+                </div>
+              </div>
+            ))
+          )}
+          
+          {/* Loading indicator */}
+          {isLoading && (
+            <div className="text-left mb-2">
+              <div className="inline-block p-3 rounded-lg bg-leftpanel rounded-bl-none">
+                <div className="flex space-x-2">
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <div ref={messagesEndRef} />
+        </div>
+        
+        {/* Input area */}
+        <div className="flex flex-col w-full bg-leftpanel rounded-xl">
+          <form onSubmit={handleSend} className="flex flex-col w-full">
+            <label htmlFor="conversation-input"></label>
+            <input 
+              id="conversation-input"
+              type="text" 
+              className="focus:outline-none w-full px-4 py-2 text-rightpanel bg-transparent"
+              value={input}
+              onChange={handleInputChange}
+              autoComplete="off"
+              placeholder="Type a message..."
+            />
+            <button 
+              type="submit"
+              className="bg-rightpanel ml-auto rounded-xl px-4 py-2 m-2 hover:cursor-pointer"
+              disabled={isLoading}
+            >
+              Gönder
+            </button>
+          </form>
         </div>
       </div>
     </div>

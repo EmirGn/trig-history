@@ -4,7 +4,7 @@ import "./globals.css";
 
 const outfit = Outfit({
   subsets: ['latin'],
-  weight: ['300'],
+  weight: ['200'],
   style: ['normal'],
   variable: '--font-outfit',
 });;
